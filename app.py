@@ -185,4 +185,4 @@ else:
 
     # Visualizzazione dell'intero Database filtrato
     with st.expander("📁 Visualizza intero Database filtrato"):
-        st.dataframe(df_filtrato.drop(columns=['Auto_Label'], errors='ignore'))
+        st.dataframe(df_filtrato.drop(columns=['Auto_Label'], errors='ignore')) 
