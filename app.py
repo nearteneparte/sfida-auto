@@ -23,7 +23,7 @@ def load_data():
     
     try:
         # skiprows=3 salta le 3 righe di titolo/descrizione presenti nel file Excel
-        # sep=None con engine='python' individua automaticamente se il separatore è ';' o tab/virgola
+        # sep=None con engine='python' individua automaticamente il separatore
         # decimal=',' converte i numeri decimali italiani (es. 6,7 -> 6.7)
         df = pd.read_csv(
             CSV_FILE, 
@@ -37,10 +37,11 @@ def load_data():
         df.columns = df.columns.astype(str).str.strip()
         
         # Conversione colonne numeriche se necessario
-        cols_numeriche = ['Potenza (CV)', '0-100 km/h (s)', 'Vel. Max (km/h)', 'Ripresa 80-120 (s)', '1/4 Miglio (s)', 'Nürburgring (s)']
+        cols_numeriche = ['Potenza ((0-100 km/', 'Vel. Max (I', 'Ripresa 80', '1/4 Miglio', 'Nürburgring (s)']
         for col in cols_numeriche:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+            for actual_col in df.columns:
+                if col in actual_col:
+                    df[actual_col] = pd.to_numeric(df[actual_col], errors='coerce')
                 
         return df
     except Exception as e:
@@ -59,16 +60,17 @@ else:
     st.sidebar.header("🔍 Filtri")
     
     # Selezione Marca
-    marche disponibili = ["Tutte"] + sorted(list(df['Marca'].dropna().unique()))
-    marca_selezionata = st.sidebar.selectbox("Filtra per Marca:", marche disponibili)
+    marche_disponibili = ["Tutte"] + sorted(list(df['Marca'].dropna().astype(str).unique()))
+    marca_selezionata = st.sidebar.selectbox("Filtra per Marca:", marche_disponibili)
     
     if marca_selezionata != "Tutte":
-        df_filtrato = df[df['Marca'] == marca_selezionata]
+        df_filtrato = df[df['Marca'] == marca_selezionata].copy()
     else:
-        df_filtrato = df
+        df_filtrato = df.copy()
 
     # Creazione etichetta univoca per le auto (Marca + Modello + Versione)
-    df_filtrato['Auto_Label'] = df_filtrato['Marca'] + " " + df_filtrato['Modello'] + " (" + df_filtrato['Versione'].fillna('') + ")"
+    df_filtrato['Versione'] = df_filtrato['Versione'].fillna('')
+    df_filtrato['Auto_Label'] = df_filtrato['Marca'].astype(str) + " " + df_filtrato['Modello'].astype(str) + " " + df_filtrato['Versione'].astype(str)
     auto_list = df_filtrato['Auto_Label'].tolist()
     
     st.subheader("⚔️ Confronto Diretto")
@@ -92,24 +94,20 @@ else:
     # Tabella di confronto prestazioni
     st.subheader("📊 Scheda Tecnica e Prestazioni")
     
-    metrics = [
-        ('Categoria', 'Categoria', False),
-        ('Potenza', 'Potenza (CV)', True),
-        ('Accelerazione 0-100 km/h', '0-100 km/h (s)', False), # Minore è meglio
-        ('Velocità Massima', 'Vel. Max (km/h)', True),      # Maggiore è meglio
-        ('Ripresa 80-120 km/h', 'Ripresa 80-120 (s)', False),  # Minore è meglio
-        ('1/4 di Miglio', '1/4 Miglio (s)', False),           # Minore è meglio
-        ('Tempo Nürburgring', 'Nürburgring (s)', False)       # Minore è meglio
-    ]
+    # Mappatura automatica colonne per evitare problemi di nomi esatti
+    cols = df.columns.tolist()
     
     comparison_data = []
     
-    for label, col_name, higher_is_better in metrics:
+    # Mostriamo tutte le colonne descrittive e prestazionali rilevanti
+    for col_name in cols:
+        if col_name in ['Auto_Label']:
+            continue
         val1 = auto1_data.get(col_name, "-")
         val2 = auto2_data.get(col_name, "-")
         
         comparison_data.append({
-            "Parametro": label,
+            "Parametro": col_name,
             f"{auto1_data['Marca']} {auto1_data['Modello']}": val1,
             f"{auto2_data['Marca']} {auto2_data['Modello']}": val2
         })
