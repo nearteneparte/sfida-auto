@@ -19,13 +19,14 @@ def load_data():
         return None
     
     try:
-        # skiprows=3 salta le prime 3 righe di intestazione del file Excel
+        # Forziamo sep=';' e decimal=',' per evitare errori di conteggio colonne
         df = pd.read_csv(
             CSV_FILE, 
             skiprows=3, 
-            sep=None, 
+            sep=';', 
             engine='python', 
-            decimal=','
+            decimal=',',
+            on_bad_lines='skip'
         )
         
         # Pulizia nomi colonne
@@ -189,7 +190,7 @@ else:
         col_pot = next((c for c in df.columns if 'potenza' in c.lower()), None)
         col_nurb = next((c for c in df.columns if 'nürburgring' in c.lower() or 'nurburgring' in c.lower()), None)
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
         
         with c1:
             parametro_scelto = st.selectbox(
