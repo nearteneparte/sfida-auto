@@ -14,7 +14,7 @@ st.write("Filtra per marca, scegli i due sfidanti e scopri la più veloce!")
 
 CSV_FILE = "database_auto.csv"
 
-@st.cache_data
+# @st.cache_data
 def load_data():
     if not os.path.exists(CSV_FILE):
         return None
