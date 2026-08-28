@@ -10,11 +10,10 @@ st.set_page_config(
 )
 
 st.title("🏎️ Enciclopedia Sfida Auto")
-st.write("Filtra per marca, scegli i due sfidanti e scopri la più veloce!")
+st.write("Confronta le prestazioni di oltre 300 vetture e scopri le classifiche delle più veloci!")
 
 CSV_FILE = "database_auto.csv"
 
-# @st.cache_data
 def load_data():
     if not os.path.exists(CSV_FILE):
         return None
@@ -34,8 +33,7 @@ def load_data():
         
         # Pulizia dati e conversione numerica
         for col in df.columns:
-            # Sostituisce trattini o caratteri non validi con NaN
-            df[col] = df[col].replace(['-', ' - ', 'N/A', 'nan'], None)
+            df[col] = df[col].replace(['-', ' - ', 'N/A', 'nan', 'None'], None)
             
         return df
     except Exception as e:
@@ -47,142 +45,223 @@ df = load_data()
 if df is None or df.empty:
     st.warning("⚠️ Carica il file 'database_auto.csv' nel tuo repository GitHub per accedere alla libreria completa!")
 else:
-    # --- FILTRI LATERALE ---
-    st.sidebar.header("🔍 Filtri")
-    marche_disponibili = ["Tutte"] + sorted(list(df['Marca'].dropna().astype(str).unique()))
-    marca_selezionata = st.sidebar.selectbox("Filtra per Marca:", marche_disponibili)
-    
-    if marca_selezionata != "Tutte":
-        df_filtrato = df[df['Marca'] == marca_selezionata].copy()
-    else:
-        df_filtrato = df.copy()
+    # --- NAVIGAZIONE TAB / SEZIONI ---
+    tab1, tab2 = st.tabs(["⚔️ Sfida Diretta", "🏆 Classifiche e Top 10"])
 
-    # Etichetta unificata per la selezione
-    df_filtrato['Versione'] = df_filtrato['Versione'].fillna('')
-    df_filtrato['Auto_Label'] = df_filtrato['Marca'].astype(str) + " " + df_filtrato['Modello'].astype(str) + " " + df_filtrato['Versione'].astype(str)
-    auto_list = df_filtrato['Auto_Label'].tolist()
-    
-    st.subheader("⚔️ SFIDA DIRETTA")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 🔴 Sfidante 1")
-        auto1_label = st.selectbox("Seleziona la prima vettura:", auto_list, key="auto1")
-        auto1_data = df_filtrato[df_filtrato['Auto_Label'] == auto1_label].iloc[0]
+    # ---------------------------------------------------------
+    # TAB 1: SFIDA DIRETTA
+    # ---------------------------------------------------------
+    with tab1:
+        st.sidebar.header("🔍 Filtri Sfida")
+        marche_disponibili = ["Tutte"] + sorted(list(df['Marca'].dropna().astype(str).unique()))
+        marca_selezionata = st.sidebar.selectbox("Filtra per Marca:", marche_disponibili, key="marca_sfida")
         
-    with col2:
-        st.markdown("### 🔵 Sfidante 2")
-        default_index = 1 if len(auto_list) > 1 else 0
-        auto2_label = st.selectbox("Seleziona la seconda vettura:", auto_list, index=default_index, key="auto2")
-        auto2_data = df_filtrato[df_filtrato['Auto_Label'] == auto2_label].iloc[0]
+        if marca_selezionata != "Tutte":
+            df_filtrato = df[df['Marca'] == marca_selezionata].copy()
+        else:
+            df_filtrato = df.copy()
 
-    st.markdown("---")
-    
-    # --- LOGICA DI CONFRONTO E ATTRIBUZIONE PUNTI ---
-    
-    # Definizione delle metriche e se "più alto è meglio" (True) o "più basso è meglio" (False)
-    # Cerchiamo le colonne corrispondenti nel DataFrame
-    metrics_config = [
-        ('Potenza', 'Potenza', True, 'CV'),
-        ('0-100 km/h', '0-100', False, 's'),
-        ('Velocità Massima', 'Vel. Max', True, 'km/h'),
-        ('Ripresa 80-120 km/h', 'Ripresa', False, 's'),
-        ('1/4 di Miglio', '1/4 Miglio', False, 's'),
-        ('Tempo Nürburgring', 'Nürburgring', False, 's')
-    ]
-
-    punti_auto1 = 0
-    punti_auto2 = 0
-    
-    table_rows = []
-
-    # Aggiungi informazioni generali non valutate
-    for info_col in ['Categoria']:
-        for col_name in df.columns:
-            if info_col.lower() in col_name.lower():
-                val1 = auto1_data.get(col_name, '-')
-                val2 = auto2_data.get(col_name, '-')
-                table_rows.append({
-                    "Parametro": info_col,
-                    f"🔴 {auto1_label}": str(val1) if pd.notna(val1) else "-",
-                    f"🔵 {auto2_label}": str(val2) if pd.notna(val2) else "-",
-                    "Esito": "-"
-                })
-
-    # Ciclo di confronto metriche prestazionali
-    for label, search_kw, higher_is_better, unit in metrics_config:
-        # Individua la colonna esatta
-        matched_col = None
-        for c in df.columns:
-            if search_kw.lower() in c.lower():
-                matched_col = c
-                break
+        # Etichetta unificata per la selezione
+        df_filtrato['Versione'] = df_filtrato['Versione'].fillna('')
+        df_filtrato['Auto_Label'] = df_filtrato['Marca'].astype(str) + " " + df_filtrato['Modello'].astype(str) + " " + df_filtrato['Versione'].astype(str)
+        auto_list = df_filtrato['Auto_Label'].tolist()
         
-        val1_raw = auto1_data.get(matched_col, None) if matched_col else None
-        val2_raw = auto2_data.get(matched_col, None) if matched_col else None
+        st.subheader("⚔️ Confronto Faccia a Faccia")
         
-        # Conversione a float per il confronto
-        try:
-            val1 = float(str(val1_raw).replace(',', '.')) if pd.notna(val1_raw) else None
-        except:
-            val1 = None
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 🔴 Sfidante 1")
+            auto1_label = st.selectbox("Seleziona la prima vettura:", auto_list, key="auto1")
+            auto1_data = df_filtrato[df_filtrato['Auto_Label'] == auto1_label].iloc[0]
             
-        try:
-            val2 = float(str(val2_raw).replace(',', '.')) if pd.notna(val2_raw) else None
-        except:
-            val2 = None
+        with col2:
+            st.markdown("### 🔵 Sfidante 2")
+            default_index = 1 if len(auto_list) > 1 else 0
+            auto2_label = st.selectbox("Seleziona la seconda vettura:", auto_list, index=default_index, key="auto2")
+            auto2_data = df_filtrato[df_filtrato['Auto_Label'] == auto2_label].iloc[0]
 
-        esito = "-"
+        st.markdown("---")
         
-        if val1 is not None and val2 is not None:
-            if val1 == val2:
-                esito = "Pareggio"
-            elif (higher_is_better and val1 > val2) or (not higher_is_better and val1 < val2):
+        # Mappatura metriche
+        metrics_config = [
+            ('Potenza', 'Potenza', True, 'CV'),
+            ('0-100 km/h', '0-100', False, 's'),
+            ('Velocità Massima', 'Vel. Max', True, 'km/h'),
+            ('Ripresa 80-120 km/h', 'Ripresa', False, 's'),
+            ('1/4 di Miglio', '1/4 Miglio', False, 's'),
+            ('Tempo Nürburgring', 'Nürburgring', False, 's')
+        ]
+
+        punti_auto1 = 0
+        punti_auto2 = 0
+        table_rows = []
+
+        # Categoria
+        for info_col in ['Categoria']:
+            for col_name in df.columns:
+                if info_col.lower() in col_name.lower():
+                    val1 = auto1_data.get(col_name, '-')
+                    val2 = auto2_data.get(col_name, '-')
+                    table_rows.append({
+                        "Parametro": info_col,
+                        f"🔴 {auto1_label}": str(val1) if pd.notna(val1) else "-",
+                        f"🔵 {auto2_label}": str(val2) if pd.notna(val2) else "-",
+                        "Esito": "-"
+                    })
+
+        for label, search_kw, higher_is_better, unit in metrics_config:
+            matched_col = None
+            for c in df.columns:
+                if search_kw.lower() in c.lower():
+                    matched_col = c
+                    break
+            
+            val1_raw = auto1_data.get(matched_col, None) if matched_col else None
+            val2_raw = auto2_data.get(matched_col, None) if matched_col else None
+            
+            try:
+                val1 = float(str(val1_raw).replace(',', '.')) if pd.notna(val1_raw) else None
+            except:
+                val1 = None
+                
+            try:
+                val2 = float(str(val2_raw).replace(',', '.')) if pd.notna(val2_raw) else None
+            except:
+                val2 = None
+
+            esito = "-"
+            
+            if val1 is not None and val2 is not None:
+                if val1 == val2:
+                    esito = "Pareggio"
+                elif (higher_is_better and val1 > val2) or (not higher_is_better and val1 < val2):
+                    punti_auto1 += 1
+                    esito = f"🏆 {auto1_data['Marca']}"
+                else:
+                    punti_auto2 += 1
+                    esito = f"🏆 {auto2_data['Marca']}"
+            elif val1 is not None and val2 is None:
                 punti_auto1 += 1
-                esito = f"🏆 {auto1_data['Marca']}"
-            else:
+                esito = f"🏆 {auto1_data['Marca']} (Dato unico)"
+            elif val2 is not None and val1 is None:
                 punti_auto2 += 1
-                esito = f"🏆 {auto2_data['Marca']}"
-        elif val1 is not None and val2 is None:
-            punti_auto1 += 1
-            esito = f"🏆 {auto1_data['Marca']} (Dato unico)"
-        elif val2 is not None and val1 is None:
-            punti_auto2 += 1
-            esito = f"🏆 {auto2_data['Marca']} (Dato unico)"
+                esito = f"🏆 {auto2_data['Marca']} (Dato unico)"
 
-        str_val1 = f"{val1} {unit}" if val1 is not None else "-"
-        str_val2 = f"{val2} {unit}" if val2 is not None else "-"
+            str_val1 = f"{val1} {unit}" if val1 is not None else "-"
+            str_val2 = f"{val2} {unit}" if val2 is not None else "-"
 
-        table_rows.append({
-            "Parametro": label,
-            f"🔴 {auto1_label}": str_val1,
-            f"🔵 {auto2_label}": str_val2,
-            "Esito": esito
-        })
+            table_rows.append({
+                "Parametro": label,
+                f"🔴 {auto1_label}": str_val1,
+                f"🔵 {auto2_label}": str_val2,
+                "Esito": esito
+            })
 
-    # --- TABELLA E PUNTEGGI ---
-    st.subheader("📊 Confronto Prestazioni e Punteggio")
-    
-    comp_df = pd.DataFrame(table_rows)
-    st.table(comp_df)
+        st.subheader("📊 Confronto Prestazioni e Punteggio")
+        comp_df = pd.DataFrame(table_rows)
+        st.table(comp_df)
 
-    # Box Risultato Finale
-    st.markdown("### 🏁 Risultato Finale")
-    
-    score_col1, score_col2 = st.columns(2)
-    with score_col1:
-        st.metric(label=f"Punti 🔴 {auto1_label}", value=f"{punti_auto1} Punti")
-    with score_col2:
-        st.metric(label=f"Punti 🔵 {auto2_label}", value=f"{punti_auto2} Punti")
+        st.markdown("### 🏁 Risultato Finale")
+        score_col1, score_col2 = st.columns(2)
+        with score_col1:
+            st.metric(label=f"Punti 🔴 {auto1_label}", value=f"{punti_auto1} Punti")
+        with score_col2:
+            st.metric(label=f"Punti 🔵 {auto2_label}", value=f"{punti_auto2} Punti")
 
-    if punti_auto1 > punti_auto2:
-        st.success(f"🎉 **VINCITRICE: {auto1_label}** con {punti_auto1} punti contro {punti_auto2}!")
-    elif punti_auto2 > punti_auto1:
-        st.success(f"🎉 **VINCITRICE: {auto2_label}** con {punti_auto2} punti contro {punti_auto1}!")
-    else:
-        st.info("⚖️ **PAREGGIO PERFETTO!** Le due vetture hanno ottenuto lo stesso punteggio.")
+        if punti_auto1 > punti_auto2:
+            st.success(f"🎉 **VINCITRICE: {auto1_label}** con {punti_auto1} punti contro {punti_auto2}!")
+        elif punti_auto2 > punti_auto1:
+            st.success(f"🎉 **VINCITRICE: {auto2_label}** con {punti_auto2} punti contro {punti_auto1}!")
+        else:
+            st.info("⚖️ **PAREGGIO PERFETTO!** Le due vetture hanno ottenuto lo stesso punteggio.")
 
-    # Visualizzazione dell'intero Database filtrato
-    with st.expander("📁 Visualizza intero Database filtrato"):
-        st.dataframe(df_filtrato.drop(columns=['Auto_Label'], errors='ignore'))   
+    # ---------------------------------------------------------
+    # TAB 2: CLASSIFICHE E TOP 10
+    # ---------------------------------------------------------
+    with tab2:
+        st.subheader("🏆 Le 10 Auto Più Veloci")
+        
+        # Individuazione colonne rilevanti nel dataframe
+        col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
+        col_0100 = next((c for c in df.columns if '0-100' in c.lower()), None)
+        col_vel = next((c for c in df.columns if 'vel. max' in c.lower() or 'velocità' in c.lower()), None)
+        col_pot = next((c for c in df.columns if 'potenza' in c.lower()), None)
+        col_nurb = next((c for c in df.columns if 'nürburgring' in c.lower() or 'nurburgring' in c.lower()), None)
+
+        c1, c2, c3 = st.columns(3)
+        
+        with c1:
+            parametro_scelto = st.selectbox(
+                "Scegli il parametro di classifica:",
+                ["Accelerazione 0-100 km/h", "Velocità Massima", "Potenza (CV)", "Tempo Nürburgring"]
+            )
+            
+        with c2:
+            # Estrazione categorie uniche
+            categorie_disponibili = ["Tutte le categorie"]
+            if col_cat:
+                cats = sorted(list(df[col_cat].dropna().astype(str).unique()))
+                categorie_disponibili.extend(cats)
+            cat_selezionata = st.selectbox("Filtra per Categoria:", categorie_disponibili)
+
+        # Preparazione dati puliti per ranking
+        df_rank = df.copy()
+        
+        # Filtro Categoria
+        if col_cat and cat_selezionata != "Tutte le categorie":
+            df_rank = df_rank[df_rank[col_cat].astype(str) == cat_selezionata]
+
+        # Selezione colonna e ordinamento
+        if parametro_scelto == "Accelerazione 0-100 km/h" and col_0100:
+            target_col = col_0100
+            ascending = True
+            unit_str = " s"
+        elif parametro_scelto == "Velocità Massima" and col_vel:
+            target_col = col_vel
+            ascending = False
+            unit_str = " km/h"
+        elif parametro_scelto == "Potenza (CV)" and col_pot:
+            target_col = col_pot
+            ascending = False
+            unit_str = " CV"
+        elif parametro_scelto == "Tempo Nürburgring" and col_nurb:
+            target_col = col_nurb
+            ascending = True
+            unit_str = " s"
+        else:
+            target_col = None
+
+        if target_col:
+            # Conversione numerica
+            df_rank['Valore_Num'] = df_rank[target_col].astype(str).str.replace(',', '.')
+            df_rank['Valore_Num'] = pd.to_numeric(df_rank['Valore_Num'], errors='coerce')
+            
+            # Escludiamo i valori nulli o non registrati (-)
+            df_rank = df_rank.dropna(subset=['Valore_Num'])
+            
+            # Ordinamento
+            df_rank = df_rank.sort_values(by='Valore_Num', ascending=ascending).reset_index(drop=True)
+            
+            top10 = df_rank.head(10).copy()
+            
+            if top10.empty:
+                st.info("Nessun dato disponibile per questo combinazione di filtri.")
+            else:
+                top10['Posizione'] = [f"🥇 1°", "🥈 2°", "🥉 3°"] + [f"{i}°" for i in range(4, len(top10) + 1)]
+                top10['Vettura'] = top10['Marca'].astype(str) + " " + top10['Modello'].astype(str) + " " + top10['Versione'].fillna('').astype(str)
+                top10['Risultato'] = top10['Valore_Num'].astype(str) + unit_str
+                
+                # Selezione colonne finali da mostrare
+                display_cols = ['Posizione', 'Vettura', 'Risultato']
+                if col_cat:
+                    display_cols.append(col_cat)
+                    
+                st.markdown(f"#### 📊 Top 10 — {parametro_scelto}")
+                st.dataframe(top10[display_cols], use_container_width=True, hide_index=True)
+        else:
+            st.warning("Colonna per la classifica non trovata nel database.")
+
+    # Visualizzazione dell'intero Database
+    with st.expander("📁 Visualizza intero Database"):
+        st.dataframe(df)
