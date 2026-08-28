@@ -1,4 +1,4 @@
-﻿DATABASE PRESTAZIONI AUTO AUTOMOBILISTICHE;;;;;;;;;
+DATABASE PRESTAZIONI AUTO AUTOMOBILISTICHE;;;;;;;;;
 Inclusi brand High-Tech e Hypercar cinesi: Xiaomi, BYD, Yangwang | Totale modelli: 312;;;;;;;;;
 ;;;;;;;;;
 Marca;Modello;Versione;Categoria;Potenza (CV);0-100 km/h (s);Vel. Max (km/h);Ripresa 80-120 (s);1/4 Miglio (s);Nürburgring (s)
@@ -34,6 +34,7 @@ Audi;A3 Sportback;30 TFSI 1.5 Mild Hybrid 116 CV;Berlina;116;9,9;205;7,2;15,3;-
 Audi;A3 Sportback;30 TDI 2.0 116 CV;Berlina;116;10,1;206;7,3;15,5;-
 Audi;A4 Avant;40 TDI Quattro 204 CV;Station Wagon;204;6,9;236;4,6;12,3;-
 Audi;A4 Avant;35 TDI 2.0 Mild Hybrid 163 CV;Station Wagon;163;8,5;223;5,9;13,9;-
+Audi;RS5 Sedan / Avant;2.9 V6 TFSI PHEV;Berlina / SW;640;3,5;290;2,4;11,5;-
 Audi;A5 Sportback;40 TFSI 2.0 204 CV;Berlina;204;7,2;244;4,8;12,6;-
 Audi;A6 Avant;40 TDI 2.0 204 CV;Station Wagon;204;7,6;241;5,2;13;-
 Audi;Q2;35 TFSI 1.5 150 CV;SUV;150;8,6;218;5,9;14;-
@@ -305,7 +306,7 @@ Volkswagen;T-Roc;1.5 TSI 150 CV;SUV;150;8,6;205;6;14;-
 Volkswagen;T-Roc;1.0 TSI 110 CV;SUV;110;10,8;185;8;16,2;-
 Volkswagen;Tiguan;2.0 TSI R 320 CV 4Motion;SUV Sportivo;320;4,9;250;3,4;10,3;-
 Volkswagen;Tiguan;1.5 eHybrid Plug-in 272 CV;SUV;272;7,2;215;4,8;12,6;-
-Volkswagen;Tiguan;2.0 TDI 150 CV;SUV;150;9,3;201;6,5;14,7;-
+Volkswagen;Tiguan;2.0 TDI 150 CV;SUV;150;9,3;207;6,5;14,7;-
 Volkswagen;Tiguan;1.5 eTSI Mild Hybrid 130 CV;SUV;130;10,6;198;7,8;16;-
 Xiaomi;SU7;RWD Standard 299 CV;Berlina;299;5,3;210;3,6;10,8;-
 Xiaomi;SU7 Max;AWD Dual Motor 673 CV;Berlina Sportiva;673;2,78;265;1,6;4,8;-
