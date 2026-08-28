@@ -9,11 +9,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# Titolo ed intestazione
 st.title("🏎️ Enciclopedia Sfida Auto")
 st.write("Filtra per marca, scegli i due sfidanti e scopri la più veloce!")
 
-# Nome del file CSV nella repository GitHub
 CSV_FILE = "database_auto.csv"
 
 @st.cache_data
@@ -22,9 +20,7 @@ def load_data():
         return None
     
     try:
-        # skiprows=3 salta le 3 righe di titolo/descrizione presenti nel file Excel
-        # sep=None con engine='python' individua automaticamente il separatore
-        # decimal=',' converte i numeri decimali italiani (es. 6,7 -> 6.7)
+        # skiprows=3 salta le prime 3 righe di intestazione del file Excel
         df = pd.read_csv(
             CSV_FILE, 
             skiprows=3, 
@@ -33,33 +29,26 @@ def load_data():
             decimal=','
         )
         
-        # Pulizia nomi colonne da eventuali spazi bianchi extra
+        # Pulizia nomi colonne
         df.columns = df.columns.astype(str).str.strip()
         
-        # Conversione colonne numeriche se necessario
-        cols_numeriche = ['Potenza ((0-100 km/', 'Vel. Max (I', 'Ripresa 80', '1/4 Miglio', 'Nürburgring (s)']
-        for col in cols_numeriche:
-            for actual_col in df.columns:
-                if col in actual_col:
-                    df[actual_col] = pd.to_numeric(df[actual_col], errors='coerce')
-                
+        # Pulizia dati e conversione numerica
+        for col in df.columns:
+            # Sostituisce trattini o caratteri non validi con NaN
+            df[col] = df[col].replace(['-', ' - ', 'N/A', 'nan'], None)
+            
         return df
     except Exception as e:
         st.error(f"Errore nella lettura del file CSV: {e}")
         return None
 
-# Caricamento dati
 df = load_data()
 
 if df is None or df.empty:
     st.warning("⚠️ Carica il file 'database_auto.csv' nel tuo repository GitHub per accedere alla libreria completa!")
 else:
-    # --- INTERFACCIA APP STREAMLIT ---
-    
-    # Barra laterale / Filtri
+    # --- FILTRI LATERALE ---
     st.sidebar.header("🔍 Filtri")
-    
-    # Selezione Marca
     marche_disponibili = ["Tutte"] + sorted(list(df['Marca'].dropna().astype(str).unique()))
     marca_selezionata = st.sidebar.selectbox("Filtra per Marca:", marche_disponibili)
     
@@ -68,52 +57,131 @@ else:
     else:
         df_filtrato = df.copy()
 
-    # Creazione etichetta univoca per le auto (Marca + Modello + Versione)
+    # Etichetta unificata per la selezione
     df_filtrato['Versione'] = df_filtrato['Versione'].fillna('')
     df_filtrato['Auto_Label'] = df_filtrato['Marca'].astype(str) + " " + df_filtrato['Modello'].astype(str) + " " + df_filtrato['Versione'].astype(str)
     auto_list = df_filtrato['Auto_Label'].tolist()
     
-    st.subheader("⚔️ Confronto Diretto")
+    st.subheader("⚔️ SFIDA DIRETTA")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### Auto 1")
+        st.markdown("### 🔴 Sfidante 1")
         auto1_label = st.selectbox("Seleziona la prima vettura:", auto_list, key="auto1")
         auto1_data = df_filtrato[df_filtrato['Auto_Label'] == auto1_label].iloc[0]
         
     with col2:
-        st.markdown("### Auto 2")
-        # Imposta di default la seconda auto se disponibile
+        st.markdown("### 🔵 Sfidante 2")
         default_index = 1 if len(auto_list) > 1 else 0
         auto2_label = st.selectbox("Seleziona la seconda vettura:", auto_list, index=default_index, key="auto2")
         auto2_data = df_filtrato[df_filtrato['Auto_Label'] == auto2_label].iloc[0]
 
     st.markdown("---")
     
-    # Tabella di confronto prestazioni
-    st.subheader("📊 Scheda Tecnica e Prestazioni")
+    # --- LOGICA DI CONFRONTO E ATTRIBUZIONE PUNTI ---
     
-    # Mappatura automatica colonne per evitare problemi di nomi esatti
-    cols = df.columns.tolist()
+    # Definizione delle metriche e se "più alto è meglio" (True) o "più basso è meglio" (False)
+    # Cerchiamo le colonne corrispondenti nel DataFrame
+    metrics_config = [
+        ('Potenza', 'Potenza', True, 'CV'),
+        ('0-100 km/h', '0-100', False, 's'),
+        ('Velocità Massima', 'Vel. Max', True, 'km/h'),
+        ('Ripresa 80-120 km/h', 'Ripresa', False, 's'),
+        ('1/4 di Miglio', '1/4 Miglio', False, 's'),
+        ('Tempo Nürburgring', 'Nürburgring', False, 's')
+    ]
+
+    punti_auto1 = 0
+    punti_auto2 = 0
     
-    comparison_data = []
-    
-    # Mostriamo tutte le colonne descrittive e prestazionali rilevanti
-    for col_name in cols:
-        if col_name in ['Auto_Label']:
-            continue
-        val1 = auto1_data.get(col_name, "-")
-        val2 = auto2_data.get(col_name, "-")
+    table_rows = []
+
+    # Aggiungi informazioni generali non valutate
+    for info_col in ['Categoria']:
+        for col_name in df.columns:
+            if info_col.lower() in col_name.lower():
+                val1 = auto1_data.get(col_name, '-')
+                val2 = auto2_data.get(col_name, '-')
+                table_rows.append({
+                    "Parametro": info_col,
+                    f"🔴 {auto1_label}": str(val1) if pd.notna(val1) else "-",
+                    f"🔵 {auto2_label}": str(val2) if pd.notna(val2) else "-",
+                    "Esito": "-"
+                })
+
+    # Ciclo di confronto metriche prestazionali
+    for label, search_kw, higher_is_better, unit in metrics_config:
+        # Individua la colonna esatta
+        matched_col = None
+        for c in df.columns:
+            if search_kw.lower() in c.lower():
+                matched_col = c
+                break
         
-        comparison_data.append({
-            "Parametro": col_name,
-            f"{auto1_data['Marca']} {auto1_data['Modello']}": val1,
-            f"{auto2_data['Marca']} {auto2_data['Modello']}": val2
+        val1_raw = auto1_data.get(matched_col, None) if matched_col else None
+        val2_raw = auto2_data.get(matched_col, None) if matched_col else None
+        
+        # Conversione a float per il confronto
+        try:
+            val1 = float(str(val1_raw).replace(',', '.')) if pd.notna(val1_raw) else None
+        except:
+            val1 = None
+            
+        try:
+            val2 = float(str(val2_raw).replace(',', '.')) if pd.notna(val2_raw) else None
+        except:
+            val2 = None
+
+        esito = "-"
+        
+        if val1 is not None and val2 is not None:
+            if val1 == val2:
+                esito = "Pareggio"
+            elif (higher_is_better and val1 > val2) or (not higher_is_better and val1 < val2):
+                punti_auto1 += 1
+                esito = f"🏆 {auto1_data['Marca']}"
+            else:
+                punti_auto2 += 1
+                esito = f"🏆 {auto2_data['Marca']}"
+        elif val1 is not None and val2 is None:
+            punti_auto1 += 1
+            esito = f"🏆 {auto1_data['Marca']} (Dato unico)"
+        elif val2 is not None and val1 is None:
+            punti_auto2 += 1
+            esito = f"🏆 {auto2_data['Marca']} (Dato unico)"
+
+        str_val1 = f"{val1} {unit}" if val1 is not None else "-"
+        str_val2 = f"{val2} {unit}" if val2 is not None else "-"
+
+        table_rows.append({
+            "Parametro": label,
+            f"🔴 {auto1_label}": str_val1,
+            f"🔵 {auto2_label}": str_val2,
+            "Esito": esito
         })
-        
-    comp_df = pd.DataFrame(comparison_data)
+
+    # --- TABELLA E PUNTEGGI ---
+    st.subheader("📊 Confronto Prestazioni e Punteggio")
+    
+    comp_df = pd.DataFrame(table_rows)
     st.table(comp_df)
+
+    # Box Risultato Finale
+    st.markdown("### 🏁 Risultato Finale")
+    
+    score_col1, score_col2 = st.columns(2)
+    with score_col1:
+        st.metric(label=f"Punti 🔴 {auto1_label}", value=f"{punti_auto1} Punti")
+    with score_col2:
+        st.metric(label=f"Punti 🔵 {auto2_label}", value=f"{punti_auto2} Punti")
+
+    if punti_auto1 > punti_auto2:
+        st.success(f"🎉 **VINCITRICE: {auto1_label}** con {punti_auto1} punti contro {punti_auto2}!")
+    elif punti_auto2 > punti_auto1:
+        st.success(f"🎉 **VINCITRICE: {auto2_label}** con {punti_auto2} punti contro {punti_auto1}!")
+    else:
+        st.info("⚖️ **PAREGGIO PERFETTO!** Le due vetture hanno ottenuto lo stesso punteggio.")
 
     # Visualizzazione dell'intero Database filtrato
     with st.expander("📁 Visualizza intero Database filtrato"):
