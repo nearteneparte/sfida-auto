@@ -1,102 +1,122 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import os
 
-st.set_page_config(page_title="Enciclopedia Sfida Auto 🏎️", page_icon="🏎️", layout="centered")
+# Configurazione pagina Streamlit
+st.set_page_config(
+    page_title="Enciclopedia Sfida Auto",
+    page_icon="🏎️",
+    layout="wide"
+)
 
+# Titolo ed intestazione
 st.title("🏎️ Enciclopedia Sfida Auto")
-st.caption("Filtra per marca, scegli i due sfidanti e scopri la più veloce!")
+st.write("Filtra per marca, scegli i due sfidanti e scopri la più veloce!")
 
-# Caricamento del Database dal file CSV
+# Nome del file CSV nella repository GitHub
+CSV_FILE = "database_auto.csv"
+
 @st.cache_data
 def load_data():
+    if not os.path.exists(CSV_FILE):
+        return None
+    
     try:
-        df = pd.read_csv("database_auto.csv")
-    except:
-        st.error("⚠️ Carica il file 'database_auto.csv' nel tuo repository GitHub per accedere alla libreria completa!")
-        return pd.DataFrame()
+        # skiprows=3 salta le 3 righe di titolo/descrizione presenti nel file Excel
+        # sep=None con engine='python' individua automaticamente se il separatore è ';' o tab/virgola
+        # decimal=',' converte i numeri decimali italiani (es. 6,7 -> 6.7)
+        df = pd.read_csv(
+            CSV_FILE, 
+            skiprows=3, 
+            sep=None, 
+            engine='python', 
+            decimal=','
+        )
+        
+        # Pulizia nomi colonne da eventuali spazi bianchi extra
+        df.columns = df.columns.astype(str).str.strip()
+        
+        # Conversione colonne numeriche se necessario
+        cols_numeriche = ['Potenza (CV)', '0-100 km/h (s)', 'Vel. Max (km/h)', 'Ripresa 80-120 (s)', '1/4 Miglio (s)', 'Nürburgring (s)']
+        for col in cols_numeriche:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                
+        return df
+    except Exception as e:
+        st.error(f"Errore nella lettura del file CSV: {e}")
+        return None
 
-    # Stima automatica 1/4 miglio per auto senza dato Carwow da pista
-    mask_carwow = df['Carwow_1_4_miglio_s'].isna()
-    df.loc[mask_carwow, 'Carwow_1_4_miglio_s'] = np.round(df.loc[mask_carwow, 'Zero_100_s'] + 5.4, 2)
-
-    df["Auto_Completa"] = df["Marca"].astype(str) + " " + df["Modello"].astype(str) + " (" + df["Versione"].astype(str) + ")"
-    return df.sort_values(by=["Marca", "Modello"]).reset_index(drop=True)
-
+# Caricamento dati
 df = load_data()
 
-if not df.empty:
-    st.subheader("🔍 Selezione Sfidanti")
+if df is None or df.empty:
+    st.warning("⚠️ Carica il file 'database_auto.csv' nel tuo repository GitHub per accedere alla libreria completa!")
+else:
+    # --- INTERFACCIA APP STREAMLIT ---
     
-    marchi = ["Tutti i Marchi"] + sorted(df["Marca"].astype(str).unique().tolist())
+    # Barra laterale / Filtri
+    st.sidebar.header("🔍 Filtri")
     
-    col_f1, col_f2 = st.columns(2)
-    with col_f1:
-        filtro_m1 = st.selectbox("Marca 🔴 Prima Auto", marchi, index=0)
-    with col_f2:
-        filtro_m2 = st.selectbox("Marca 🔵 Seconda Auto", marchi, index=0)
-
-    lista_1 = df["Auto_Completa"] if filtro_m1 == "Tutti i Marchi" else df[df["Marca"] == filtro_m1]["Auto_Completa"]
-    lista_2 = df["Auto_Completa"] if filtro_m2 == "Tutti i Marchi" else df[df["Marca"] == filtro_m2]["Auto_Completa"]
-
-    col1, col2 = st.columns(2)
-    with col1:
-        auto_1_nome = st.selectbox("🔴 Seleziona Auto 1", lista_1, index=0)
-    with col2:
-        idx_def = 1 if len(lista_2) > 1 else 0
-        auto_2_nome = st.selectbox("🔵 Seleziona Auto 2", lista_2, index=idx_def)
-
-    auto_1 = df[df["Auto_Completa"] == auto_1_nome].iloc[0]
-    auto_2 = df[df["Auto_Completa"] == auto_2_nome].iloc[0]
-
-    # Logica Sfida e Punteggi
-    metriche = [
-        ("Potenza (CV)", "Potenza_CV", "max"),
-        ("Accelerazione 0-100 km/h (s)", "Zero_100_s", "min"),
-        ("Velocità Max (km/h)", "Vel_Max_kmh", "max"),
-        ("Ripresa 80-120 km/h (s)", "Ripresa_80_120_s", "min"),
-        ("1/4 Miglio Carwow (s)", "Carwow_1_4_miglio_s", "min"),
-        ("Giro Nürburgring (s)", "Nurburgring_s", "min")
-    ]
-
-    punti_1, punti_2 = 0, 0
-    dettagli = []
-
-    for nome, col, tipo in metriche:
-        v1, v2 = auto_1[col], auto_2[col]
-        txt1 = f"{v1:.2f}".rstrip('0').rstrip('.') if pd.notnull(v1) else "N/D"
-        txt2 = f"{v2:.2f}".rstrip('0').rstrip('.') if pd.notnull(v2) else "N/D"
-        vincitore = "Pareggio 🤝"
-        
-        if pd.notnull(v1) and pd.notnull(v2):
-            if (tipo == "max" and v1 > v2) or (tipo == "min" and v1 < v2):
-                punti_1 += 1
-                vincitore = f"🏆 {auto_1['Marca']}"
-            elif (tipo == "max" and v2 > v1) or (tipo == "min" and v2 < v1):
-                punti_2 += 1
-                vincitore = f"🏆 {auto_2['Marca']}"
-
-        dettagli.append({"Parametro": nome, auto_1_nome: txt1, auto_2_nome: txt2, "Esito": vincitore})
-
-    # Risultati
-    st.markdown("---")
-    res_a, res_b = st.columns(2)
-    res_a.metric(f"🔴 {auto_1['Marca']} {auto_1['Modello']}", f"{punti_1} Punti")
-    res_b.metric(f"🔵 {auto_2['Marca']} {auto_2['Modello']}", f"{punti_2} Punti")
-
-    if punti_1 > punti_2:
-        st.balloons()
-        st.success(f"🎉 **Vince la {auto_1_nome}!**")
-    elif punti_2 > punti_1:
-        st.balloons()
-        st.success(f"🎉 **Vince la {auto_2_nome}!**")
+    # Selezione Marca
+    marche disponibili = ["Tutte"] + sorted(list(df['Marca'].dropna().unique()))
+    marca_selezionata = st.sidebar.selectbox("Filtra per Marca:", marche disponibili)
+    
+    if marca_selezionata != "Tutte":
+        df_filtrato = df[df['Marca'] == marca_selezionata]
     else:
-        st.info("🤝 **Incredibile pareggio!**")
+        df_filtrato = df
 
-    st.subheader("🔍 Dettaglio Sfida")
-    st.dataframe(pd.DataFrame(dettagli), use_container_width=True)
+    # Creazione etichetta univoca per le auto (Marca + Modello + Versione)
+    df_filtrato['Auto_Label'] = df_filtrato['Marca'] + " " + df_filtrato['Modello'] + " (" + df_filtrato['Versione'].fillna('') + ")"
+    auto_list = df_filtrato['Auto_Label'].tolist()
+    
+    st.subheader("⚔️ Confronto Diretto")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### Auto 1")
+        auto1_label = st.selectbox("Seleziona la prima vettura:", auto_list, key="auto1")
+        auto1_data = df_filtrato[df_filtrato['Auto_Label'] == auto1_label].iloc[0]
+        
+    with col2:
+        st.markdown("### Auto 2")
+        # Imposta di default la seconda auto se disponibile
+        default_index = 1 if len(auto_list) > 1 else 0
+        auto2_label = st.selectbox("Seleziona la seconda vettura:", auto_list, index=default_index, key="auto2")
+        auto2_data = df_filtrato[df_filtrato['Auto_Label'] == auto2_label].iloc[0]
 
     st.markdown("---")
-    if st.button("🔄 Aggiorna dati se aggiungi nuove auto"):
-        st.cache_data.clear()
-        st.rerun()
+    
+    # Tabella di confronto prestazioni
+    st.subheader("📊 Scheda Tecnica e Prestazioni")
+    
+    metrics = [
+        ('Categoria', 'Categoria', False),
+        ('Potenza', 'Potenza (CV)', True),
+        ('Accelerazione 0-100 km/h', '0-100 km/h (s)', False), # Minore è meglio
+        ('Velocità Massima', 'Vel. Max (km/h)', True),      # Maggiore è meglio
+        ('Ripresa 80-120 km/h', 'Ripresa 80-120 (s)', False),  # Minore è meglio
+        ('1/4 di Miglio', '1/4 Miglio (s)', False),           # Minore è meglio
+        ('Tempo Nürburgring', 'Nürburgring (s)', False)       # Minore è meglio
+    ]
+    
+    comparison_data = []
+    
+    for label, col_name, higher_is_better in metrics:
+        val1 = auto1_data.get(col_name, "-")
+        val2 = auto2_data.get(col_name, "-")
+        
+        comparison_data.append({
+            "Parametro": label,
+            f"{auto1_data['Marca']} {auto1_data['Modello']}": val1,
+            f"{auto2_data['Marca']} {auto2_data['Modello']}": val2
+        })
+        
+    comp_df = pd.DataFrame(comparison_data)
+    st.table(comp_df)
+
+    # Visualizzazione dell'intero Database filtrato
+    with st.expander("📁 Visualizza intero Database filtrato"):
+        st.dataframe(df_filtrato.drop(columns=['Auto_Label'], errors='ignore'))
