@@ -247,9 +247,18 @@ else:
             top10 = df_rank.head(10).copy()
             
             if top10.empty:
-                st.info("Nessun dato disponibile per questo combinazione di filtri.")
+                st.info("Nessun dato disponibile per questa combinazione di filtri.")
             else:
-                top10['Posizione'] = [f"🥇 1°", "🥈 2°", "🥉 3°"] + [f"{i}°" for i in range(4, len(top10) + 1)]
+                # Assegnazione dinamica posizioni e medaglie in base a quante auto ci sono effettivamente
+                medaglie = ["🥇 1°", "🥈 2°", "🥉 3°"]
+                posizioni = []
+                for i in range(len(top10)):
+                    if i < 3:
+                        posizioni.append(medaglie[i])
+                    else:
+                        posizioni.append(f"{i+1}°")
+                
+                top10['Posizione'] = posizioni
                 top10['Vettura'] = top10['Marca'].astype(str) + " " + top10['Modello'].astype(str) + " " + top10['Versione'].fillna('').astype(str)
                 top10['Risultato'] = top10['Valore_Num'].astype(str) + unit_str
                 
