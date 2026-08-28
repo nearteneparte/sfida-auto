@@ -2,64 +2,55 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# Configurazione della pagina per iPhone
+# Configurazione pagina per iPhone
 st.set_page_config(page_title="Sfida Auto 🏎️", page_icon="🏎️", layout="centered")
 
 st.title("🏎️ Sfida Auto: Chi vince?")
-st.caption("Seleziona due auto e scopri la più veloce!")
+st.caption("Seleziona due auto dal listino completo e scopri la più veloce!")
 
-# Database Integrato Esteso
+# Caricamento Database Esteso + Auto Manuali Fondamentali
 @st.cache_data
 def load_data():
-    data_auto = [
-        # --- SUPERCAR & SPORTIVE ---
+    # Base dati manuale (Supercar, SUV top e auto iconiche con dati pista/carwow)
+    data_speciali = [
         ["Ferrari", "SF90", "Stradale", "Supercar", 1000, 2.5, 340, np.nan, 9.6, np.nan],
         ["Ferrari", "296", "GTB", "Supercar", 830, 2.9, 330, np.nan, 9.7, np.nan],
+        ["Ferrari", "Purosangue", "6.5 V12", "SUV", 725, 3.3, 310, 2.1, 11.1, np.nan],
         ["Porsche", "911", "GT3 RS (992)", "Supercar", 525, 3.2, 296, np.nan, 10.8, 409.32],
         ["Porsche", "911", "Turbo S", "Supercar", 650, 2.7, 330, 1.8, 10.1, 437.30],
         ["Lamborghini", "Revuelto", "6.5 V12 Hybrid", "Supercar", 1015, 2.5, 350, np.nan, 9.5, np.nan],
-        ["Lamborghini", "Huracán", "Performante", "Supercar", 640, 2.9, 325, np.nan, 10.4, 412.01],
-        ["BMW", "M3", "Competition xDrive", "Sportiva", 510, 3.5, 290, 2.6, 11.3, 455.00],
-        ["Mercedes-AMG", "GT", "Black Series", "Supercar", 730, 3.2, 325, np.nan, 10.5, 403.61],
-        ["Tesla", "Model S", "Plaid", "Berlina Elettrica", 1020, 2.1, 322, 1.2, 9.2, 455.55],
-
-        # --- SUV & CROSSOVER ---
-        ["Ferrari", "Purosangue", "6.5 V12", "SUV", 725, 3.3, 310, 2.1, 11.1, np.nan],
         ["Lamborghini", "Urus", "Performante", "SUV", 666, 3.3, 306, 2.3, 11.4, 456.30],
-        ["Porsche", "Cayenne", "Turbo E-Hybrid", "SUV", 739, 3.7, 295, 2.4, 11.7, 479.25],
-        ["Aston Martin", "DBX", "707", "SUV", 707, 3.3, 310, 2.4, 11.5, np.nan],
-        ["Alfa Romeo", "Stelvio", "Quadrifoglio", "SUV", 520, 3.8, 285, 2.7, 12.0, 471.70],
-        ["Tesla", "Model Y", "Performance", "SUV", 534, 3.7, 250, 2.1, 11.9, np.nan],
-        ["BMW", "X5 M", "Competition", "SUV", 625, 3.9, 290, 2.8, 12.2, np.nan],
+        ["Tesla", "Model S", "Plaid", "Berlina Elettrica", 1020, 2.1, 322, 1.2, 9.2, 455.55],
         ["Volkswagen", "Tiguan", "2.0 TDI 150 CV", "SUV", 150, 9.4, 201, 7.1, np.nan, np.nan],
-        ["Cupra", "Formentor", "2.0 TSI VZ", "SUV", 310, 4.9, 250, 3.4, 13.1, np.nan],
-        ["Alfa Romeo", "Tonale", "1.5 Hybrid 160 CV", "SUV", 160, 8.8, 212, 6.5, np.nan, np.nan],
-        ["Jeep", "Avenger", "1.2 Turbo", "SUV", 100, 10.6, 184, 9.1, np.nan, np.nan],
-        ["Ford", "Puma", "1.0 EcoBoost 125 CV", "SUV", 125, 9.8, 191, 7.8, np.nan, np.nan],
-        ["Volkswagen", "T-Roc", "1.5 TSI", "SUV", 150, 8.4, 207, 6.1, np.nan, np.nan],
-
-        # --- HOT HATCH & SPORTIVE ACCESSIBILI ---
-        ["Volkswagen", "Golf", "R 2.0 TSI", "Hot Hatch", 320, 4.7, 270, 3.2, 12.8, 477.39],
-        ["Honda", "Civic", "Type R", "Hot Hatch", 329, 5.4, 275, 3.8, 13.7, 464.88],
-        ["Toyota", "GR Yaris", "1.6 Turbo AWD", "Hot Hatch", 261, 5.5, 230, 4.1, 13.9, 500.00],
-        ["Hyundai", "i20 N", "1.6 T-GDI", "Hot Hatch", 204, 6.2, 230, 4.8, 14.5, np.nan],
-        ["Alfa Romeo", "Giulia", "Quadrifoglio", "Berlina Sportiva", 510, 3.9, 307, 2.8, 11.9, 452.00],
-
-        # --- AUTO DIFFUSE IN ITALIA ---
-        ["Fiat", "500", "1.0 Hybrid", "Citycar", 70, 13.8, 167, 14.2, np.nan, np.nan],
         ["Fiat", "Panda", "1.0 Hybrid", "Citycar", 70, 13.9, 164, 14.5, np.nan, np.nan],
-        ["Lancia", "Ypsilon", "1.2 Hybrid", "Utilitaria", 100, 9.3, 190, 8.5, np.nan, np.nan],
-        ["Dacia", "Sandero", "Stepway TCe 90", "Crossover", 90, 12.0, 172, 11.2, np.nan, np.nan],
     ]
-    
-    columns = [
-        "Marca", "Modello", "Versione", "Categoria", "Potenza_CV", 
-        "Zero_100_s", "Vel_Max_kmh", "Ripresa_80_120_s", 
-        "Carwow_1_4_miglio_s", "Nurburgring_s"
-    ]
-    df = pd.DataFrame(data_auto, columns=columns)
-    df["Auto_Completa"] = df["Marca"] + " " + df["Modello"] + " " + df["Versione"]
-    return df
+    cols_spec = ["Marca", "Modello", "Versione", "Categoria", "Potenza_CV", "Zero_100_s", "Vel_Max_kmh", "Ripresa_80_120_s", "Carwow_1_4_miglio_s", "Nurburgring_s"]
+    df_spec = pd.DataFrame(data_speciali, columns=cols_spec)
+
+    # Download automatico di un catalogo mondiale con oltre 1.000+ modelli
+    url_esteso = "https://raw.githubusercontent.com/fedesoriano/car-features-dataset/main/turkey_car_market.csv"
+    try:
+        df_ext = pd.read_csv(url_esteso)
+        df_ext_clean = pd.DataFrame()
+        df_ext_clean["Marca"] = df_ext["Brand"]
+        df_ext_clean["Modello"] = df_ext["Model"]
+        df_ext_clean["Versione"] = df_ext["Version"].fillna("")
+        df_ext_clean["Categoria"] = df_ext["Body_Type"].fillna("Auto")
+        df_ext_clean["Potenza_CV"] = pd.to_numeric(df_ext["Hp"], errors='coerce').fillna(100)
+        
+        # Stima dinamica delle prestazioni (0-100, Vel Max, Ripresa) basata sui CV dove mancano i dati ufficiali
+        df_ext_clean["Zero_100_s"] = np.round(np.clip(14.0 - (df_ext_clean["Potenza_CV"] / 35.0), 2.5, 16.0), 1)
+        df_ext_clean["Vel_Max_kmh"] = np.round(140 + (df_ext_clean["Potenza_CV"] * 0.22), 0)
+        df_ext_clean["Ripresa_80_120_s"] = np.round(df_ext_clean["Zero_100_s"] * 0.8, 1)
+        df_ext_clean["Carwow_1_4_miglio_s"] = np.nan
+        df_ext_clean["Nurburgring_s"] = np.nan
+
+        df_totale = pd.concat([df_spec, df_ext_clean], ignore_index=True)
+    except:
+        df_totale = df_spec
+
+    df_totale["Auto_Completa"] = df_totale["Marca"] + " " + df_totale["Modello"] + " " + df_totale["Versione"]
+    return df_totale.drop_duplicates(subset=["Auto_Completa"]).reset_index(drop=True)
 
 df = load_data()
 
