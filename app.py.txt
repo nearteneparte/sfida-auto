@@ -1,0 +1,125 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+
+# Configurazione della pagina per iPhone
+st.set_page_config(page_title="Sfida Auto 🏎️", page_icon="🏎️", layout="centered")
+
+st.title("🏎️ Sfida Auto: Chi vince?")
+st.caption("Seleziona due auto e scopri la più veloce!")
+
+# Database Integrato Esteso
+@st.cache_data
+def load_data():
+    data_auto = [
+        # --- SUPERCAR & SPORTIVE ---
+        ["Ferrari", "SF90", "Stradale", "Supercar", 1000, 2.5, 340, np.nan, 9.6, np.nan],
+        ["Ferrari", "296", "GTB", "Supercar", 830, 2.9, 330, np.nan, 9.7, np.nan],
+        ["Porsche", "911", "GT3 RS (992)", "Supercar", 525, 3.2, 296, np.nan, 10.8, 409.32],
+        ["Porsche", "911", "Turbo S", "Supercar", 650, 2.7, 330, 1.8, 10.1, 437.30],
+        ["Lamborghini", "Revuelto", "6.5 V12 Hybrid", "Supercar", 1015, 2.5, 350, np.nan, 9.5, np.nan],
+        ["Lamborghini", "Huracán", "Performante", "Supercar", 640, 2.9, 325, np.nan, 10.4, 412.01],
+        ["BMW", "M3", "Competition xDrive", "Sportiva", 510, 3.5, 290, 2.6, 11.3, 455.00],
+        ["Mercedes-AMG", "GT", "Black Series", "Supercar", 730, 3.2, 325, np.nan, 10.5, 403.61],
+        ["Tesla", "Model S", "Plaid", "Berlina Elettrica", 1020, 2.1, 322, 1.2, 9.2, 455.55],
+
+        # --- SUV & CROSSOVER ---
+        ["Ferrari", "Purosangue", "6.5 V12", "SUV", 725, 3.3, 310, 2.1, 11.1, np.nan],
+        ["Lamborghini", "Urus", "Performante", "SUV", 666, 3.3, 306, 2.3, 11.4, 456.30],
+        ["Porsche", "Cayenne", "Turbo E-Hybrid", "SUV", 739, 3.7, 295, 2.4, 11.7, 479.25],
+        ["Aston Martin", "DBX", "707", "SUV", 707, 3.3, 310, 2.4, 11.5, np.nan],
+        ["Alfa Romeo", "Stelvio", "Quadrifoglio", "SUV", 520, 3.8, 285, 2.7, 12.0, 471.70],
+        ["Tesla", "Model Y", "Performance", "SUV", 534, 3.7, 250, 2.1, 11.9, np.nan],
+        ["BMW", "X5 M", "Competition", "SUV", 625, 3.9, 290, 2.8, 12.2, np.nan],
+        ["Volkswagen", "Tiguan", "2.0 TDI 150 CV", "SUV", 150, 9.4, 201, 7.1, np.nan, np.nan],
+        ["Cupra", "Formentor", "2.0 TSI VZ", "SUV", 310, 4.9, 250, 3.4, 13.1, np.nan],
+        ["Alfa Romeo", "Tonale", "1.5 Hybrid 160 CV", "SUV", 160, 8.8, 212, 6.5, np.nan, np.nan],
+        ["Jeep", "Avenger", "1.2 Turbo", "SUV", 100, 10.6, 184, 9.1, np.nan, np.nan],
+        ["Ford", "Puma", "1.0 EcoBoost 125 CV", "SUV", 125, 9.8, 191, 7.8, np.nan, np.nan],
+        ["Volkswagen", "T-Roc", "1.5 TSI", "SUV", 150, 8.4, 207, 6.1, np.nan, np.nan],
+
+        # --- HOT HATCH & SPORTIVE ACCESSIBILI ---
+        ["Volkswagen", "Golf", "R 2.0 TSI", "Hot Hatch", 320, 4.7, 270, 3.2, 12.8, 477.39],
+        ["Honda", "Civic", "Type R", "Hot Hatch", 329, 5.4, 275, 3.8, 13.7, 464.88],
+        ["Toyota", "GR Yaris", "1.6 Turbo AWD", "Hot Hatch", 261, 5.5, 230, 4.1, 13.9, 500.00],
+        ["Hyundai", "i20 N", "1.6 T-GDI", "Hot Hatch", 204, 6.2, 230, 4.8, 14.5, np.nan],
+        ["Alfa Romeo", "Giulia", "Quadrifoglio", "Berlina Sportiva", 510, 3.9, 307, 2.8, 11.9, 452.00],
+
+        # --- AUTO DIFFUSE IN ITALIA ---
+        ["Fiat", "500", "1.0 Hybrid", "Citycar", 70, 13.8, 167, 14.2, np.nan, np.nan],
+        ["Fiat", "Panda", "1.0 Hybrid", "Citycar", 70, 13.9, 164, 14.5, np.nan, np.nan],
+        ["Lancia", "Ypsilon", "1.2 Hybrid", "Utilitaria", 100, 9.3, 190, 8.5, np.nan, np.nan],
+        ["Dacia", "Sandero", "Stepway TCe 90", "Crossover", 90, 12.0, 172, 11.2, np.nan, np.nan],
+    ]
+    
+    columns = [
+        "Marca", "Modello", "Versione", "Categoria", "Potenza_CV", 
+        "Zero_100_s", "Vel_Max_kmh", "Ripresa_80_120_s", 
+        "Carwow_1_4_miglio_s", "Nurburgring_s"
+    ]
+    df = pd.DataFrame(data_auto, columns=columns)
+    df["Auto_Completa"] = df["Marca"] + " " + df["Modello"] + " " + df["Versione"]
+    return df
+
+df = load_data()
+
+# Selezione degli Sfidanti
+st.subheader("⚔️ Scegli i due sfidanti")
+lista_auto = sorted(df["Auto_Completa"].unique())
+
+col1, col2 = st.columns(2)
+with col1:
+    auto_1_nome = st.selectbox("🔴 Prima Auto", lista_auto, index=0)
+with col2:
+    idx_default = 1 if len(lista_auto) > 1 else 0
+    auto_2_nome = st.selectbox("🔵 Seconda Auto", lista_auto, index=idx_default)
+
+auto_1 = df[df["Auto_Completa"] == auto_1_nome].iloc[0]
+auto_2 = df[df["Auto_Completa"] == auto_2_nome].iloc[0]
+
+# Logica del Punteggio
+metriche = [
+    ("Potenza (CV)", "Potenza_CV", "max"),
+    ("Accelerazione 0-100 km/h (s)", "Zero_100_s", "min"),
+    ("Velocità Max (km/h)", "Vel_Max_kmh", "max"),
+    ("Ripresa 80-120 km/h (s)", "Ripresa_80_120_s", "min"),
+    ("1/4 Miglio Carwow (s)", "Carwow_1_4_miglio_s", "min"),
+    ("Giro Nürburgring (s)", "Nurburgring_s", "min")
+]
+
+punti_1, punti_2 = 0, 0
+dettagli = []
+
+for nome, col, tipo in metriche:
+    v1, v2 = auto_1[col], auto_2[col]
+    txt1 = f"{v1:.1f}" if pd.notnull(v1) else "N/D"
+    txt2 = f"{v2:.1f}" if pd.notnull(v2) else "N/D"
+    vincitore = "Pareggio 🤝"
+    
+    if pd.notnull(v1) and pd.notnull(v2):
+        if (tipo == "max" and v1 > v2) or (tipo == "min" and v1 < v2):
+            punti_1 += 1
+            vincitore = f"🏆 {auto_1['Marca']}"
+        elif (tipo == "max" and v2 > v1) or (tipo == "min" and v2 < v1):
+            punti_2 += 1
+            vincitore = f"🏆 {auto_2['Marca']}"
+
+    dettagli.append({"Parametro": nome, auto_1_nome: txt1, auto_2_nome: txt2, "Esito": vincitore})
+
+# Risultato Finale
+st.markdown("---")
+res_a, res_b = st.columns(2)
+res_a.metric(f"🔴 {auto_1['Marca']} {auto_1['Modello']}", f"{punti_1} Punti")
+res_b.metric(f"🔵 {auto_2['Marca']} {auto_2['Modello']}", f"{punti_2} Punti")
+
+if punti_1 > punti_2:
+    st.balloons()
+    st.success(f"🎉 **Vince la {auto_1_nome}!**")
+elif punti_2 > punti_1:
+    st.balloons()
+    st.success(f"🎉 **Vince la {auto_2_nome}!**")
+else:
+    st.info("🤝 **Incredibile pareggio!**")
+
+st.subheader("🔍 Dettaglio Sfida")
+st.dataframe(pd.DataFrame(dettagli), use_container_width=True)
