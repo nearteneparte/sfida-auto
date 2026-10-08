@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SICIT peptides</title>
+<style>
+  @font-face { font-family: 'DM Sans'; src: url('dmsans.woff2') format('woff2'); font-weight: 100 1000; }
+  html, body { margin: 0; background: #FFFFFF; }
+  canvas { display: block; width: 1920px; height: 1080px; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<img id="logo" src="logo.png" style="display:none">
+<script>
+// 30 s animation, deterministic: render(t) draws the frame at time t (seconds).
+const W = 1920, H = 1080, DURATION = 30;
+const C = {
+  bg: '#FFFFFF', ink: '#111111', muted: '#555555', faint: '#8A8A8A',
+  panel: '#F2F2F2', line: '#DADADA',
+  green: '#47D45A', greenDark: '#14702B',
+  ctrl: '#CFCFCF', mimic: '#A1A1A1', iron: '#B5532A', soil: '#E9E4DC'
+};
+const FONT = "'DM Sans', Arial, sans-serif";
+
+const STR = {
+  en: {
+    titleEyebrow: 'SICIT  ·  Collagen peptides',
+    title: ['Why peptides outperform', 'free amino acids'],
+    titleSub: 'Peer-reviewed work, University of Verona',
+    howEyebrow: 'How it works',
+    howTitle: 'From collagen to active peptides',
+    capA: 'Hydrolysis cuts collagen into short peptides, with glycine at every third position.',
+    subA: 'Consensus sequence identified by mass spectrometry',
+    capB: 'Peptides bind iron directly.',
+    testEyebrow: 'The test',
+    testTitle: 'Same nitrogen. Only the structure changes.',
+    cards: [
+      ['Nitrogen only', ['Control']],
+      ['Mimic', ['The SICIT product with peptides', 'replaced by free amino acids']],
+      ['SICIT', ['Collagen peptides']]
+    ],
+    r1Eyebrow: 'Result 1', r1Title: 'Lateral root length',
+    r2Eyebrow: 'Result 2', r2Title: 'Nutrient uptake, mean of eight nutrients',
+    r3Eyebrow: 'Result 3', r3Title: 'Leaf iron after deficiency and resupply',
+    labels: [['Nitrogen only'], ['Mimic', 'free amino acids'], ['SICIT peptides']],
+    ironLabels: [['Iron alone'], ['FeEDTA'], ['Peptides + iron']],
+    vsMimic: 'vs mimic', vsFe: 'vs FeEDTA',
+    close: ['Same nitrogen. Same amino acids.', 'The difference is the peptide.'],
+    source: 'Maize seedlings, same nitrogen in all treatments. University of Verona: Santi et al. 2017; Ambrosini et al. 2021. Values read from published figures.'
+  },
+  it: {
+    titleEyebrow: 'SICIT  ·  Peptidi da collagene',
+    title: ['Perché i peptidi battono', 'gli amminoacidi liberi'],
+    titleSub: 'Studi pubblicati, Università di Verona',
+    howEyebrow: 'Come funziona',
+    howTitle: 'Dal collagene ai peptidi attivi',
+    capA: "L'idrolisi taglia il collagene in peptidi corti, con glicina ogni tre posizioni.",
+    subA: 'Sequenza consenso identificata in spettrometria di massa',
+    capB: 'I peptidi legano direttamente il ferro.',
+    testEyebrow: 'Il test',
+    testTitle: 'Stesso azoto. Cambia solo la struttura.',
+    cards: [
+      ['Solo azoto', ['Controllo']],
+      ['Mimic', ['Il prodotto SICIT con i peptidi', 'sostituiti da amminoacidi liberi']],
+      ['SICIT', ['Peptidi da collagene']]
+    ],
+    r1Eyebrow: 'Risultato 1', r1Title: 'Lunghezza delle radici laterali',
+    r2Eyebrow: 'Risultato 2', r2Title: 'Assorbimento dei nutrienti, media di otto',
+    r3Eyebrow: 'Risultato 3', r3Title: 'Ferro nelle foglie dopo carenza e reintegro',
+    labels: [['Solo azoto'], ['Mimic', 'amminoacidi liberi'], ['Peptidi SICIT']],
+    ironLabels: [['Solo ferro'], ['FeEDTA'], ['Peptidi + ferro']],
+    vsMimic: 'vs mimic', vsFe: 'vs FeEDTA',
+    close: ['Stesso azoto. Stessi amminoacidi.', 'La differenza è il peptide.'],
+    source: 'Plantule di mais, stesso azoto in tutti i trattamenti. Università di Verona: Santi et al. 2017; Ambrosini et al. 2021. Valori letti dalle figure pubblicate.'
+  }
+};
+const LANG = new URLSearchParams(location.search).get('lang') === 'it' ? 'it' : 'en';
+const S = STR[LANG];
+
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const logo = document.getElementById('logo');
+
+// ---------- helpers ----------
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = p => 1 - Math.pow(1 - p, 3);
+const easeInOut = p => p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+const lerp = (a, b, p) => a + (b - a) * p;
+
+function text(str, x, y, size, opts = {}) {
+  const { weight = 400, color = C.ink, align = 'left', alpha = 1, base = 'alphabetic' } = opts;
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.font = `${weight} ${size}px ${FONT}`;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = base;
+  ctx.fillText(str, x, y);
+  ctx.restore();
+}
+function textWidth(str, size, weight = 400) {
+  ctx.font = `${weight} ${size}px ${FONT}`;
+  return ctx.measureText(str).width;
+}
+function rrect(x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+}
+function circle(x, y, r, fill, stroke, lw = 2) {
+  ctx.beginPath();
+  ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+}
+// Scene envelope: fade + small rise at both ends.
+function envelope(t, a, b, fin = 0.4, fout = 0.4) {
+  if (t < a || t > b) return 0;
+  return Math.min(easeOut(seg(t, a, a + fin)), fout > 0 ? easeOut(1 - seg(t, b - fout, b)) : 1);
+}
+function header(eyebrow, title, alpha, rise) {
+  text(eyebrow.toUpperCase(), 128, 150 + rise, 26, { weight: 700, color: C.greenDark, alpha });
+  text(title, 128, 222 + rise, 60, { weight: 700, alpha });
+}
+function footer(alpha) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (logo.complete && logo.naturalWidth) ctx.drawImage(logo, W - 128 - 132, H - 96, 132, 40);
+  ctx.restore();
+  text(S.source, 128, H - 64, 22, { color: C.muted, alpha });
+}
+function badge(str, sub, x, y, alpha, scale = 1) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  const w1 = textWidth(str, 64, 700);
+  const w2 = textWidth(sub, 28, 500);
+  const w = w1 + w2 + 92;
+  rrect(-w, -52, w, 104, 52, C.green);
+  text(str, -w + 40, 22, 64, { weight: 700 });
+  text(sub, -40, 12, 28, { weight: 500, align: 'right' });
+  ctx.restore();
+}
+
+// Bead colors: glycine green, other residues in two greys.
+function beadColor(i) { return i % 3 === 0 ? C.green : (i % 3 === 1 ? '#9C9C9C' : '#C4C4C4'); }
+
+// ---------- scenes ----------
+function sceneTitle(t) {
+  const a = envelope(t, 0, 4.0, 0.01, 0.5);
+  if (!a) return;
+  const p1 = easeOut(seg(t, 0.2, 1.2)), p2 = easeOut(seg(t, 0.5, 1.5)), p3 = easeOut(seg(t, 0.9, 1.9));
+  ctx.save(); ctx.globalAlpha = a;
+  // Decorative peptide line under the title: beads appear one by one.
+  const n = 24, sp = 46, x0 = 128;
+  for (let i = 0; i < n; i++) {
+    const pi = easeOut(seg(t, 1.2 + i * 0.05, 1.6 + i * 0.05));
+    if (i > 0 && pi > 0) {
+      ctx.strokeStyle = C.line; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(x0 + (i - 1) * sp, 760); ctx.lineTo(x0 + (i - 1) * sp + sp * pi, 760); ctx.stroke();
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const pi = easeOut(seg(t, 1.2 + i * 0.05, 1.6 + i * 0.05));
+    circle(x0 + i * sp, 760, 15 * pi, beadColor(i));
+  }
+  text(S.titleEyebrow.toUpperCase(), 128, 330 + 30 * (1 - p1), 30, { weight: 700, color: C.greenDark, alpha: p1 });
+  text(S.title[0], 128, 450 + 30 * (1 - p2), 104, { weight: 700, alpha: p2 });
+  text(S.title[1], 128, 570 + 30 * (1 - p2), 104, { weight: 700, alpha: p2 });
+  text(S.titleSub, 128, 660 + 30 * (1 - p3), 36, { color: C.muted, alpha: p3 });
+  if (logo.complete && logo.naturalWidth) {
+    ctx.globalAlpha = a * p3;
+    ctx.drawImage(logo, W - 128 - 230, 120, 230, 70);
+  }
+  ctx.restore();
+}
+
+function sceneHow(t) {
+  const A = 4.0, B = 10.2;
+  const a = envelope(t, A, B);
+  if (!a) return;
+  const rise = 20 * (1 - easeOut(seg(t, A, A + 0.6)));
+  ctx.save(); ctx.globalAlpha = a;
+  header(S.howEyebrow, S.howTitle, 1, rise);
+
+  const n = 24, sp = 58, cy = 560;
+  const x0 = W / 2 - (n - 1) * sp / 2;
+  const cut = easeInOut(seg(t, 5.6, 6.5));            // chain splits into 3 peptides
+  const focus = easeInOut(seg(t, 6.6, 7.5));          // middle peptide moves to centre and grows
+  const bind = easeInOut(seg(t, 8.1, 9.2));           // middle peptide wraps around Fe
+  const seq = 'GFPGLPGP';
+
+  // Bead positions.
+  const pos = [];
+  for (let i = 0; i < n; i++) {
+    const g = Math.floor(i / 8), k = i % 8;
+    let x = x0 + i * sp + (g - 1) * 90 * cut;
+    let y = cy + (g === 1 ? 0 : (g === 0 ? -40 : 40)) * cut;
+    let r = 19, alpha = 1;
+    if (g === 1) {
+      // focus: scale the middle peptide about the centre
+      const s = lerp(1, 1.45, focus);
+      const cx = W / 2;
+      x = cx + (x - cx) * s;
+      r = 19 * s;
+      // bind: map the straight peptide onto an arc around the iron ion
+      const fx = W / 2, fy = cy + 10, R = 140;
+      const theta = lerp(Math.PI * 0.8, Math.PI * 2.2, k / 7);  // wraps about 250° around the ion
+      const bx = fx + R * Math.cos(theta);
+      const by = fy + R * Math.sin(theta);
+      x = lerp(x, bx, bind);
+      y = lerp(y, by, bind);
+    } else {
+      alpha = 1 - focus;
+    }
+    pos.push({ x, y, r, alpha, g, k });
+  }
+  // Appearance: beads pop in left to right.
+  const appear = i => easeOut(seg(t, A + 0.2 + i * 0.04, A + 0.6 + i * 0.04));
+
+  // Bonds.
+  for (let i = 1; i < n; i++) {
+    const p = pos[i - 1], q = pos[i];
+    const sameGroup = p.g === q.g;
+    let al = Math.min(appear(i), p.alpha, q.alpha);
+    if (!sameGroup) al *= 1 - seg(cut, 0, 0.3);
+    if (al <= 0) continue;
+    ctx.save(); ctx.globalAlpha *= al;
+    ctx.strokeStyle = C.line; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+    ctx.restore();
+  }
+  // Scissor marks at the two cuts.
+  [7.5, 15.5].forEach(ci => {
+    const m = Math.sin(Math.PI * seg(t, 5.4, 6.2));
+    if (m <= 0) return;
+    const x = x0 + ci * sp;
+    ctx.save(); ctx.globalAlpha *= m;
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(x - 16, cy - 50); ctx.lineTo(x + 16, cy - 18); ctx.moveTo(x + 16, cy - 50); ctx.lineTo(x - 16, cy - 18); ctx.stroke();
+    ctx.restore();
+  });
+  // Iron ion.
+  const fe = easeOut(seg(t, 7.8, 8.4));
+  if (fe > 0) {
+    const pulse = 1 + 0.04 * Math.sin((t - 7.8) * 6) * seg(t, 8.4, 9.4);
+    circle(W / 2, cy + 10, 56 * fe * pulse, C.iron);
+    text('Fe', W / 2, cy + 26, 44, { weight: 700, color: '#FFFFFF', align: 'center', alpha: fe });
+  }
+  // Beads.
+  for (let i = 0; i < n; i++) {
+    const p = pos[i];
+    const al = Math.min(appear(i), p.alpha);
+    if (al <= 0) continue;
+    ctx.save(); ctx.globalAlpha *= al;
+    circle(p.x, p.y, p.r * (0.6 + 0.4 * appear(i)), beadColor(i));
+    ctx.restore();
+    if (p.g === 1 && focus > 0) {
+      text(seq[p.k], p.x, p.y + p.r * 0.36, 28 * (p.r / 19) * 0.75, { weight: 700, align: 'center', color: C.ink, alpha: focus * al });
+    }
+  }
+  // Gly-X-Y label on the first triplet, before the cut.
+  const lab = easeOut(seg(t, 5.0, 5.3)) * (1 - seg(t, 5.5, 5.8));
+  ['Gly', 'X', 'Y'].forEach((s, i) => text(s, x0 + i * sp, cy - 40, 26, { weight: 700, align: 'center', color: i === 0 ? C.greenDark : C.muted, alpha: lab }));
+
+  // Captions.
+  const cA = easeOut(seg(t, 4.6, 5.1)) * (1 - seg(t, 7.9, 8.2));
+  const cB = easeOut(seg(t, 8.3, 8.7));
+  text(S.capA, W / 2, 860, 36, { weight: 500, align: 'center', alpha: cA });
+  const sA = focus * (1 - seg(t, 7.9, 8.2));
+  text(S.subA + ':  GFPGLPGP', W / 2, 912, 28, { color: C.muted, align: 'center', alpha: sA });
+  text(S.capB, W / 2, 860, 36, { weight: 500, align: 'center', alpha: cB });
+  ctx.restore();
+}
+
+// Deterministic pseudo-random for jitter.
+function rnd(i) { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+function sceneTest(t) {
+  const A = 10.2, B = 14.4;
+  const a = envelope(t, A, B);
+  if (!a) return;
+  const rise = 20 * (1 - easeOut(seg(t, A, A + 0.6)));
+  ctx.save(); ctx.globalAlpha = a;
+  header(S.testEyebrow, S.testTitle, 1, rise);
+  const cw = 512, ch = 560, gap = 64, top = 290;
+  for (let c = 0; c < 3; c++) {
+    const pc = easeOut(seg(t, A + 0.3 + c * 0.25, A + 0.9 + c * 0.25));
+    const x = 128 + c * (cw + gap), y = top + 30 * (1 - pc);
+    ctx.save(); ctx.globalAlpha *= pc;
+    rrect(x, y, cw, ch, 24, c === 2 ? '#EAF8EC' : C.panel);
+    const cx = x + cw / 2, cy = y + 200;
+    const tt = t - A;
+    if (c === 0) {
+      // nitrogen only: a few N ions
+      const npos = [[-120, -70], [40, -95], [140, 10], [-60, 40], [80, 95], [-150, 105]];
+      for (let i = 0; i < 6; i++) {
+        const px = cx + npos[i][0] + 6 * Math.sin(tt * 2 + i);
+        const py = cy + npos[i][1] + 6 * Math.cos(tt * 2.3 + i);
+        circle(px, py, 22, C.ctrl);
+        text('N', px, py + 9, 24, { weight: 700, align: 'center', color: C.ink });
+      }
+    } else if (c === 1) {
+      // mimic: free amino acids, scattered single beads
+      for (let i = 0; i < 18; i++) {
+        const px = cx + (rnd(i + 20) - 0.5) * 360 + 8 * Math.sin(tt * 2.2 + i * 1.7);
+        const py = cy + (rnd(i + 40) - 0.5) * 250 + 8 * Math.cos(tt * 1.9 + i);
+        circle(px, py, 15, beadColor(i));
+      }
+    } else {
+      // SICIT: same residues, linked into peptides
+      for (let j = 0; j < 3; j++) {
+        const oy = cy - 90 + j * 90, ox = cx - 3.5 * 40 + (j - 1) * 24;
+        const wob = 6 * Math.sin(tt * 2 + j);
+        ctx.strokeStyle = C.line; ctx.lineWidth = 5;
+        ctx.beginPath();
+        for (let k = 0; k < 8; k++) { const px = ox + k * 40, py = oy + wob + 10 * Math.sin(k * 0.9 + tt * 2); k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.stroke();
+        for (let k = 0; k < 8; k++) circle(ox + k * 40, oy + wob + 10 * Math.sin(k * 0.9 + tt * 2), 15, beadColor(k));
+      }
+    }
+    const [name, sub] = S.cards[c];
+    text(name, x + 40, y + 430, 40, { weight: 700, color: c === 2 ? C.greenDark : C.ink });
+    sub.forEach((s, i) => text(s, x + 40, y + 476 + i * 34, 26, { color: C.muted }));
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function counter(v, p, dec) { return (v * p).toFixed(dec); }
+
+function sceneRoots(t) {
+  const A = 14.4, B = 19.6;
+  const a = envelope(t, A, B);
+  if (!a) return;
+  const rise = 20 * (1 - easeOut(seg(t, A, A + 0.6)));
+  ctx.save(); ctx.globalAlpha = a;
+  header(S.r1Eyebrow, S.r1Title, 1, rise);
+  const vals = [1.0, 5.4, 9.7];
+  const xs = [460, 960, 1460];
+  const soil = 400;
+  // soil band
+  ctx.save(); ctx.globalAlpha *= easeOut(seg(t, A + 0.2, A + 0.7));
+  ctx.fillStyle = C.soil; ctx.fillRect(128, soil, W - 256, 400);
+  ctx.restore();
+  const grow = easeInOut(seg(t, A + 0.7, A + 3.2));
+  for (let c = 0; c < 3; c++) {
+    const x = xs[c], col = c === 2 ? C.greenDark : '#6F6F6F';
+    // shoot
+    const sh = easeOut(seg(t, A + 0.3, A + 0.9));
+    ctx.strokeStyle = c === 2 ? C.green : '#9C9C9C'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, soil); ctx.lineTo(x, soil - 90 * sh); ctx.stroke();
+    ctx.fillStyle = c === 2 ? C.green : '#B5B5B5';
+    [[-1, 60], [1, 80]].forEach(([d, h]) => {
+      if (sh <= 0) return;
+      ctx.beginPath();
+      ctx.ellipse(x + d * 34 * sh, soil - h * sh, 36 * sh, 13 * sh, d * -0.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    // primary root
+    const L = 300;
+    ctx.strokeStyle = col; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(x, soil); ctx.lineTo(x, soil + 20 + L * Math.min(1, grow * 1.6)); ctx.stroke();
+    // lateral roots: count scales with the measured factor
+    const nl = Math.round(vals[c] * 2.2);
+    ctx.lineWidth = 3.5;
+    for (let i = 0; i < nl; i++) {
+      const start = i / (nl + 1);
+      const pg = easeOut(clamp((grow - start * 0.6) / 0.4));
+      if (pg <= 0) continue;
+      const yy = soil + 40 + (L - 40) * ((i + 0.5) / nl);
+      const d = i % 2 ? 1 : -1;
+      const len = (70 + 60 * rnd(i + c * 31)) * (1 - 0.35 * (i / nl)) * pg;
+      ctx.beginPath();
+      ctx.moveTo(x, yy);
+      ctx.quadraticCurveTo(x + d * len * 0.6, yy + 8, x + d * len, yy + 34 * pg);
+      ctx.stroke();
+    }
+    // value + label
+    const vp = easeOut(seg(t, A + 1.0, A + 3.2));
+    text(counter(vals[c], vp, 1) + '×', x, 890, 72, { weight: 700, align: 'center', color: c === 2 ? C.greenDark : C.ink, alpha: seg(t, A + 0.9, A + 1.3) });
+    S.labels[c].forEach((s, i) => text(s, x, 936 + i * 30, i ? 24 : 28, { weight: i ? 400 : 700, align: 'center', color: i ? C.muted : (c === 2 ? C.greenDark : C.ink) }));
+  }
+  const bp = easeOut(seg(t, A + 3.2, A + 3.7));
+  badge('+80%', S.vsMimic, W - 128, 178, bp, lerp(0.85, 1, bp));
+  ctx.restore();
+}
+
+function bars(t, A, vals, labels, max, dec, fmt) {
+  const xs = [560, 960, 1360], base = 820, hmax = 440, bw = 240;
+  ctx.strokeStyle = C.line; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(300, base); ctx.lineTo(1620, base); ctx.stroke();
+  for (let c = 0; c < 3; c++) {
+    const p = easeOut(seg(t, A + 0.5 + c * 0.25, A + 1.7 + c * 0.25));
+    const h = hmax * vals[c] / max * p;
+    rrect(xs[c] - bw / 2, base - h, bw, h, [10, 10, 0, 0], c === 2 ? C.green : (c === 0 ? C.ctrl : C.mimic));
+    if (p > 0) text(fmt(vals[c] * p, dec), xs[c], base - h - 24, 64, { weight: 700, align: 'center', color: c === 2 ? C.greenDark : C.ink, alpha: seg(p, 0, 0.2) });
+    labels[c].forEach((s, i) => text(s, xs[c], base + 50 + i * 32, i ? 24 : 28, { weight: i ? 400 : 700, align: 'center', color: i ? C.muted : (c === 2 ? C.greenDark : C.ink) }));
+  }
+}
+
+function sceneUptake(t) {
+  const A = 19.6, B = 24.2;
+  const a = envelope(t, A, B);
+  if (!a) return;
+  const rise = 20 * (1 - easeOut(seg(t, A, A + 0.6)));
+  ctx.save(); ctx.globalAlpha = a;
+  header(S.r2Eyebrow, S.r2Title, 1, rise);
+  bars(t, A, [1.0, 1.7, 2.3], S.labels, 2.3, 1, (v, d) => v.toFixed(d) + '×');
+  const bp = easeOut(seg(t, A + 2.3, A + 2.8));
+  badge('+35%', S.vsMimic, W - 128, 178, bp, lerp(0.85, 1, bp));
+  ctx.restore();
+}
+
+function sceneIron(t) {
+  const A = 24.2, B = 27.9;
+  const a = envelope(t, A, B);
+  if (!a) return;
+  const rise = 20 * (1 - easeOut(seg(t, A, A + 0.6)));
+  ctx.save(); ctx.globalAlpha = a;
+  header(S.r3Eyebrow, S.r3Title, 1, rise);
+  bars(t, A, [100, 98, 140], S.ironLabels, 140, 0, (v) => Math.round(v).toString());
+  const bp = easeOut(seg(t, A + 2.2, A + 2.7));
+  badge('+43%', S.vsFe, W - 128, 178, bp, lerp(0.85, 1, bp));
+  ctx.restore();
+}
+
+function sceneClose(t) {
+  const A = 27.9;
+  if (t < A) return;
+  const p1 = easeOut(seg(t, A + 0.1, A + 0.7)), p2 = easeOut(seg(t, A + 0.5, A + 1.1)), p3 = easeOut(seg(t, A + 0.9, A + 1.5));
+  text(S.close[0], W / 2, 470 + 20 * (1 - p1), 72, { weight: 700, align: 'center', color: C.muted, alpha: p1 });
+  text(S.close[1], W / 2, 570 + 20 * (1 - p2), 88, { weight: 700, align: 'center', color: C.greenDark, alpha: p2 });
+  if (logo.complete && logo.naturalWidth) {
+    ctx.save(); ctx.globalAlpha = p3;
+    ctx.drawImage(logo, W / 2 - 115, 680, 230, 70);
+    ctx.restore();
+  }
+}
+
+function render(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  sceneTitle(t);
+  sceneHow(t);
+  sceneTest(t);
+  sceneRoots(t);
+  sceneUptake(t);
+  sceneIron(t);
+  sceneClose(t);
+  // Source line from the test onwards, the logo sits in the footer during content scenes.
+  const fa = Math.min(easeOut(seg(t, 10.2, 10.6)), 1 - seg(t, 27.5, 27.9));
+  footer(fa);
+}
+window.render = render;
+window.DURATION = DURATION;
+window.ready = Promise.all([document.fonts.load(`700 40px ${FONT}`), document.fonts.load(`400 40px ${FONT}`),
+  new Promise(r => logo.complete ? r() : (logo.onload = r))]);
+
+// Preview mode: play in real time when opened directly.
+if (!new URLSearchParams(location.search).has('render')) {
+  window.ready.then(() => {
+    const t0 = performance.now();
+    (function loop() { render(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); })();
+  });
+}
+</script>
+</body>
+</html>
